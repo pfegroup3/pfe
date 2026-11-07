@@ -1,4 +1,6 @@
-"""Tâches Databricks (python_wheel_task) : ingestion batch, enrichissement, ML, santé."""
+"""
+    Tâches Databricks (python_wheel_task) : ingestion batch, enrichissement, ML, santé.
+"""
 from __future__ import annotations
 
 import logging
@@ -25,7 +27,9 @@ def ingest(source: str, lookback_days: int = 3) -> None:
 
 
 def enrich(lookback_hours: int = 72) -> None:
-    """Silver -> Business Vault : dédoublonnage, séance, sentiment FinBERT, catégorie."""
+    """
+        Silver -> Business Vault : dédoublonnage, séance, sentiment FinBERT, catégorie.
+    """
     import pandas as pd
 
     from pfe.common.runlog import run_log

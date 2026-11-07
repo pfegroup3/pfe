@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS business_vault.bv_article_enriched (
   cluster_id STRING, is_first BOOLEAN, dup_rank INT, cluster_size INT,
   session_type STRING, session_date DATE, reaction_start_utc TIMESTAMP,
   positive DOUBLE, negative DOUBLE, neutral DOUBLE, sentiment_score DOUBLE, sentiment_label STRING, category STRING,
-  model_version STRING, load_ts TIMESTAMP DEFAULT current_timestamp());
+  model_version STRING, load_ts TIMESTAMP DEFAULT current_timestamp())
+TBLPROPERTIES ('delta.feature.allowColumnDefaults' = 'supported');
 
 CREATE TABLE IF NOT EXISTS business_vault.bv_event_car (
   hk_article STRING, hk_security STRING, window_start_min INT, window_end_min INT, car DOUBLE, t_stat DOUBLE, p_value DOUBLE,
