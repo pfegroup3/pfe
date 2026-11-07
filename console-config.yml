@@ -1,0 +1,5 @@
+kafkaConnect:
+  enabled: true
+  clusters:
+    - name: my-connect-cluster          # display name in the UI
+      url: http://kafka-connect:8083    # Connect REST API URL

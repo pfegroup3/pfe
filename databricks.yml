@@ -1,0 +1,35 @@
+# Databricks Asset Bundle — déploiement as-code (dev / staging / prod)
+bundle:
+  name: pfe
+
+variables:
+  catalog: {default: pfe_dev}
+  warehouse_id: {description: "ID du SQL Warehouse"}
+  kafka_bootstrap: {default: "pfe-ns.servicebus.windows.net:9093"}
+  alert_email: {default: "jmnvekounou@gmail.com"}
+  sp_application_id: {default: "b95b8c0d-606f-4daf-a8ee-296c91440447"}
+
+artifacts:
+  pfe_wheel:
+    type: whl
+    build: python -m build --wheel
+    path: .
+
+include: ["resources/*.yml"]
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace: 
+      host: "https://dbc-8972b9cf-2975.cloud.databricks.com"
+    variables: 
+      catalog: pfe_dev
+  staging:
+    workspace: {host: "https://dbc-8972b9cf-2975.cloud.databricks.com", root_path: /Shared/.bundle/pfe/staging}
+    variables: {catalog: pfe_stg}
+  prod:
+    mode: production
+    workspace: {host: "https://dbc-8972b9cf-2975.cloud.databricks.com", root_path: /Shared/.bundle/pfe/prod}
+    variables: {catalog: pfe_prod}
+    run_as: {service_principal_name: "${var.sp_application_id}"}

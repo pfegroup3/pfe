@@ -1,0 +1,21 @@
+kafka:
+  brokers: ["broker-1:9092"]
+
+kafkaConnect:
+  enabled: true
+  clusters:
+    - name: my-connect-cluster          # display name in the UI
+      url: http://kafka-connect:8083    # Connect REST API URL
+      # Optional:
+      # tls:
+      #   enabled: true
+      #   caFilepath: /etc/ssl/ca.crt
+      #   certFilepath: /etc/ssl/client.crt
+      #   keyFilepath: /etc/ssl/client.key
+      #   insecureSkipTlsVerify: false
+      # username: connect-user
+      # password: connect-password
+      # token: <bearer-token>           # alternative to basic auth
+  # connectTimeout: 15s
+  # readTimeout: 60s
+  # requestTimeout: 6s
