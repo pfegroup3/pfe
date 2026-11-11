@@ -5,7 +5,9 @@ from dataclasses import dataclass, field
 
 
 def _secret(name: str, default: str = "") -> str:
-    """Env d'abord ; sinon secret scope Databricks 'pfe' si disponible."""
+    """
+        Env d'abord ; sinon secret scope Databricks 'pfe' si disponible.
+    """
     from dotenv import load_dotenv
     load_dotenv()
     val = os.getenv(name)
@@ -19,7 +21,6 @@ def _secret(name: str, default: str = "") -> str:
     except Exception:
         return default
 
-
 @dataclass(frozen=True)
 class Settings:
     catalog: str = field(default_factory=lambda: os.getenv("PFE_CATALOG", "pfe_dev"))
@@ -31,8 +32,6 @@ class Settings:
     alpaca_secret: str = field(default_factory=lambda: _secret("ALPACA_SECRET"))
     alpaca_feed: str = field(default_factory=lambda: os.getenv("ALPACA_FEED", "iex"))
     newsapi_key: str = field(default_factory=lambda: _secret("NEWSAPI_KEY"))
-    reddit_id: str = field(default_factory=lambda: _secret("REDDIT_CLIENT_ID"))
-    reddit_secret: str = field(default_factory=lambda: _secret("REDDIT_CLIENT_SECRET"))
     sec_user_agent: str = field(default_factory=lambda: os.getenv("SEC_USER_AGENT", "pfe contact@example.com"))
     kafka_bootstrap: str = field(default_factory=lambda: os.getenv("KAFKA_BOOTSTRAP", "localhost:9092"))
     kafka_password: str = field(default_factory=lambda: _secret("KAFKA_SASL_PASSWORD"))

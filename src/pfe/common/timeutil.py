@@ -11,7 +11,7 @@ import pandas as pd
 import pandas_market_calendars as mcal
 from datetime import datetime, timedelta, timezone
 
-ET = "America/Montreal"
+east_tz = "America/Montreal"
 
 
 def to_utc(series: pd.Series, *, naive_tz: str | None = None) -> pd.Series:
@@ -56,11 +56,11 @@ def attach_session(df: pd.DataFrame, sessions: pd.DataFrame, ts_col: str = "publ
     n = len(sessions)
     idx = np.searchsorted(opens, tn, side="right") - 1
     prev, nxt = np.clip(idx, 0, n - 1), np.clip(idx + 1, 0, n - 1)
-    et_date = t.dt.tz_convert(ET).dt.date.to_numpy()
+    east_tz_date = t.dt.tz_convert(east_tz).dt.date.to_numpy()
 
     during = (idx >= 0) & (tn < closes[prev])
-    pre_mkt = (idx + 1 < n) & (et_date == sd[nxt]) & ~during
-    after = (idx >= 0) & (et_date == sd[prev]) & ~during
+    pre_mkt = (idx + 1 < n) & (east_tz_date == sd[nxt]) & ~during
+    after = (idx >= 0) & (east_tz_date == sd[prev]) & ~during
     out["session_type"] = np.select([during, pre_mkt, after], ["pendant", "avant", "apres"], default="ferme")
 
     react = pd.to_datetime(np.where(during, tn, opens[nxt]), utc=True)

@@ -1,7 +1,8 @@
-"""Temps : UTC partout, calendrier boursier, rattachement des nouvelles à une séance.
+"""
+    Temps : UTC partout, calendrier boursier, rattachement des nouvelles à une séance.
 
-Règle anti-biais d'anticipation : une nouvelle n'est exploitable qu'à `published_utc`
-(jamais à sa mise à jour ultérieure) et la réaction est mesurée à `reaction_start_utc`.
+    Règle anti-biais d'anticipation : une nouvelle n'est exploitable qu'à `published_utc`
+    (jamais à sa mise à jour ultérieure) et la réaction est mesurée à `reaction_start_utc`.
 """
 from __future__ import annotations
 
@@ -10,11 +11,13 @@ import pandas as pd
 import pandas_market_calendars as mcal
 from datetime import datetime, timedelta, timezone
 
-ET = "America/New_York"
+east_tz = "America/Montreal"
 
 
 def to_utc(series: pd.Series, *, naive_tz: str | None = None) -> pd.Series:
-    """Convertit en UTC. `naive_tz` : fuseau supposé pour les horodatages sans fuseau (ex. ET)."""
+    """
+        Convertit en UTC. `naive_tz` : fuseau supposé pour les horodatages sans fuseau.
+    """
     if naive_tz is None:
         return pd.to_datetime(series, errors="coerce", utc=True)
     s = pd.to_datetime(series, errors="coerce")
@@ -22,13 +25,15 @@ def to_utc(series: pd.Series, *, naive_tz: str | None = None) -> pd.Series:
 
 
 def build_sessions(start: str, end: str, calendar: str = "NYSE") -> pd.DataFrame:
-    """Séances avec ouverture/fermeture en UTC (DST, jours fériés, fermetures anticipées)."""
-    sched = mcal.get_calendar(calendar).schedule(start_date=start, end_date=end)
+    """
+        Séances avec ouverture/fermeture en UTC (DST, jours fériés, fermetures anticipées).
+    """
+    schedul = mcal.get_calendar(calendar).schedule(start_date=start, end_date=end)
     return pd.DataFrame(
         {
-            "session_date": sched.index.date,
-            "open_utc": pd.DatetimeIndex(sched["market_open"]).tz_convert("UTC"),
-            "close_utc": pd.DatetimeIndex(sched["market_close"]).tz_convert("UTC"),
+            "session_date": schedul.index.date,
+            "open_utc": pd.DatetimeIndex(schedul["market_open"]).tz_convert("UTC"),
+            "close_utc": pd.DatetimeIndex(schedul["market_close"]).tz_convert("UTC"),
         }
     )
 
@@ -51,11 +56,11 @@ def attach_session(df: pd.DataFrame, sessions: pd.DataFrame, ts_col: str = "publ
     n = len(sessions)
     idx = np.searchsorted(opens, tn, side="right") - 1
     prev, nxt = np.clip(idx, 0, n - 1), np.clip(idx + 1, 0, n - 1)
-    et_date = t.dt.tz_convert(ET).dt.date.to_numpy()
+    east_tz_date = t.dt.tz_convert(east_tz).dt.date.to_numpy()
 
     during = (idx >= 0) & (tn < closes[prev])
-    pre_mkt = (idx + 1 < n) & (et_date == sd[nxt]) & ~during
-    after = (idx >= 0) & (et_date == sd[prev]) & ~during
+    pre_mkt = (idx + 1 < n) & (east_tz_date == sd[nxt]) & ~during
+    after = (idx >= 0) & (east_tz_date == sd[prev]) & ~during
     out["session_type"] = np.select([during, pre_mkt, after], ["pendant", "avant", "apres"], default="ferme")
 
     react = pd.to_datetime(np.where(during, tn, opens[nxt]), utc=True)
