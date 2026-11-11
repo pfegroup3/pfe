@@ -18,10 +18,22 @@ log = logging.getLogger("pfe.streamer")
 def _producer(s):
     from confluent_kafka import Producer
 
-    conf = {"bootstrap.servers": s.kafka_bootstrap, "linger.ms": 50, "compression.type": "lz4", "enable.idempotence": True}
+    conf = {
+        "bootstrap.servers": s.kafka_bootstrap,
+        "broker.address.family": "v4",
+        "linger.ms": 50,
+        "enable.idempotence": False,
+        "socket.keepalive.enable": True,
+        "metadata.max.age.ms": 180000,
+        "connections.max.idle.ms": 180000,
+    }
     if s.kafka_password:  # Azure Event Hubs (API Kafka)
-        conf |= {"security.protocol": "SASL_SSL", "sasl.mechanism": "PLAIN",
-                 "sasl.username": "$ConnectionString", "sasl.password": s.kafka_password}
+        conf |= {
+            "security.protocol": "SASL_SSL", 
+            "sasl.mechanism": "PLAIN",
+            "sasl.username": "$ConnectionString", 
+            "sasl.password": s.kafka_password,           
+        }
     return Producer(conf)
 
 

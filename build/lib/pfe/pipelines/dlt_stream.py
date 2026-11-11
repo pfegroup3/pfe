@@ -11,6 +11,7 @@ def _kafka(topic: str):
     r = (spark.readStream.format("kafka")  # noqa: F821
          .option("kafka.bootstrap.servers", BOOT).option("subscribe", topic)
          .option("startingOffsets", "earliest").option("failOnDataLoss", "false"))
+    
     if spark.conf.get("kafka.sasl", "false") == "true":  # noqa: F821
         pw = dbutils.secrets.get(SCOPE, "KAFKA_SASL_PASSWORD")  # noqa: F821
         r = (r.option("kafka.security.protocol", "SASL_SSL").option("kafka.sasl.mechanism", "PLAIN")
@@ -24,6 +25,7 @@ NEWS_SCHEMA = StructType([
     StructField("author", StringType()), StructField("source", StringType()), StructField("url", StringType()),
     StructField("created_at", StringType()), StructField("updated_at", StringType()),
     StructField("symbols", ArrayType(StringType())), StructField("_received_utc", DoubleType())])
+
 BAR_SCHEMA = StructType([
     StructField("symbol", StringType()), StructField("timestamp", StringType()), StructField("open", DoubleType()),
     StructField("high", DoubleType()), StructField("low", DoubleType()), StructField("close", DoubleType()),

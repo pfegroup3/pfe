@@ -84,11 +84,10 @@ def run_source(spark, src: BaseSource, *, default_start: datetime, until: dateti
     """
     pfe_catalog = src.s.catalog
 
-    until = until or datetime.now(timezone.utc)
+    since = to_utc(get_watermark(spark, pfe_catalog, src.name, default_start))- timedelta(minutes=src.s.overlap_minutes)
+    until = to_utc(until) or datetime.now(timezone.utc)
+    
     with run_log(spark, pfe_catalog, "ingest", src.name) as run_stats:
-        since = to_utc(get_watermark(spark, pfe_catalog, src.name, default_start))- timedelta(minutes=src.s.overlap_minutes)
-        until = to_utc(until) or datetime.now(timezone.utc)
-
         good, bad, fingerprints = [], [], set()
 
         for raw in src.fetch(since, until):
