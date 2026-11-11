@@ -21,6 +21,18 @@ def _secret(name: str, default: str = "") -> str:
     except Exception:
         return default
 
+def get_symbols(path: str)-> list[str]:
+    """
+        Retourne la liste des symboles du sichier tickers.yml
+    """
+    import yaml
+
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+        symbols = [item["symbol"] for item in data.get("tickers", [])]
+
+    return symbols
+
 @dataclass(frozen=True)
 class Settings:
     catalog: str = field(default_factory=lambda: os.getenv("PFE_CATALOG", "pfe_dev"))

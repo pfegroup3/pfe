@@ -22,7 +22,7 @@ def _producer(s):
         "bootstrap.servers": s.kafka_bootstrap,
         "broker.address.family": "v4",
         "linger.ms": 50,
-        "enable.idempotence": False,
+        "enable.idempotence": True,
         "socket.keepalive.enable": True,
         "metadata.max.age.ms": 180000,
         "connections.max.idle.ms": 180000,

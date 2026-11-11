@@ -16,6 +16,7 @@ from pfe.common.config import Settings
 from pfe.common.lakehouse import get_watermark, merge_insert_only, set_watermark
 from pfe.common.retry import SchemaDrift
 from pfe.common.runlog import run_log
+from pfe.common.config import get_symbols
 
 from pyspark.sql.types import StringType, StructField, StructType, TimestampType
 
@@ -60,11 +61,14 @@ class BaseSource(ABC):
     name: str
     bronze_table: str = "bronze.raw_events"
 
+    path = "config/tickers.yml"
+
     expected_keys: frozenset[str] = frozenset()  # clés minimales attendues -> détecte un changement de structure
 
     def __init__(self, settings: Settings):
-        self.s    = settings
-        self.http = requests.Session()
+        self.s       = settings
+        self.http    = requests.Session()
+        self.symbols = get_symbols(path)
 
     @abstractmethod
     def fetch(self, since: datetime, until: datetime) -> Iterator[dict]: ...
@@ -84,11 +88,10 @@ def run_source(spark, src: BaseSource, *, default_start: datetime, until: dateti
     """
     pfe_catalog = src.s.catalog
 
-    until = until or datetime.now(timezone.utc)
+    since = to_utc(get_watermark(spark, pfe_catalog, src.name, default_start))- timedelta(minutes=src.s.overlap_minutes)
+    until = to_utc(until) or datetime.now(timezone.utc)
+    
     with run_log(spark, pfe_catalog, "ingest", src.name) as run_stats:
-        since = to_utc(get_watermark(spark, pfe_catalog, src.name, default_start))- timedelta(minutes=src.s.overlap_minutes)
-        until = to_utc(until) or datetime.now(timezone.utc)
-
         good, bad, fingerprints = [], [], set()
 
         for raw in src.fetch(since, until):

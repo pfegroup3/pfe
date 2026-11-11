@@ -26,7 +26,7 @@ class FinnhubNews(BaseSource):
     URL           = "https://finnhub.io/api/v1/company-news"
  
     def fetch(self, since, until) -> Iterator[dict]:
-        for symbol in self.s.tickers:
+        for symbol in self.symbols:
             rows = get_json(
                 self.http, self.URL,
                 params={"symbol": symbol, "from": since.date().isoformat(), "to": until.date().isoformat()},
@@ -55,7 +55,7 @@ class FinnhubSentiment(BaseSource):
  
     def fetch(self, since, until):
         asof = datetime.now(timezone.utc).isoformat()
-        for symbol in self.s.tickers:
+        for symbol in self.symbols:
             try:
                 row = get_json(self.http, self.URL, params={"symbol": symbol},
                                headers={"X-Finnhub-Token": self.s.finnhub_key})
@@ -93,7 +93,7 @@ class AlpacaNews(BaseSource):
                 "end": _rfc3339(until or datetime.now(timezone.utc)),
                 "limit": 50, 
                 "sort": "asc",
-                "symbols": ",".join(self.s.tickers), 
+                "symbols": ",".join(self.symbols), 
                 "include_content": "false"
             }
             if token:
@@ -124,7 +124,7 @@ class EdgarForm8K(BaseSource):
  
     def fetch(self, since, until):
         ciks = self._cik_map()
-        for symbol in self.s.tickers:
+        for symbol in self.symbols:
             cik = ciks.get(symbol)
             if not cik:
                 log.warning("sec_8k: pas de CIK pour %s", symbol)
@@ -202,7 +202,7 @@ class AlpacaBars1m(BaseSource):
     URL           = "https://data.alpaca.markets/v2/stocks/bars"
  
     def fetch(self, since, until):
-        for symbol in self.s.tickers:
+        for symbol in self.symbols:
             token = None
             while True:
                 params = {
@@ -240,7 +240,7 @@ class YahooDaily(BaseSource):
     def fetch(self, since, until):
         import yfinance as yf
  
-        for symbol in self.s.tickers:
+        for symbol in self.symbols:
             h = yf.Ticker(symbol).history(start=since.date(), end=until.date() + timedelta(days=1),
                                           auto_adjust=False, actions=True)
             for ts, row in h.iterrows():
