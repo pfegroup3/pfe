@@ -255,3 +255,4 @@ class YahooDaily(BaseSource):
  
  
 REGISTRY = {c.name: c for c in (FinnhubNews, FinnhubSentiment, AlpacaNews, EdgarForm8K, GdeltDoc, AlpacaBars1m, YahooDaily)}
+
