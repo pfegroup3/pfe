@@ -1,4 +1,5 @@
-"""Temps réel : Alpaca (news + barres 1 min) -> Kafka / Azure Event Hubs. Un processus par flux.
+"""
+Temps réel : Alpaca (news + barres 1 min) -> Kafka / Azure Event Hubs. Un processus par flux.
 
 Usage : pfe-stream news | pfe-stream bars
 Reconnexion automatique avec backoff ; les doublons sont neutralisés en aval (clé d'idempotence).
@@ -88,7 +89,10 @@ def run(kind: str) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, 
+        format="%(asctime)s %(levelname)s %(name)s %(message)s"
+        )
     if len(sys.argv) != 2 or sys.argv[1] not in ("news", "bars"):
         sys.exit("usage: pfe-stream news|bars")
     run(sys.argv[1])

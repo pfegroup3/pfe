@@ -8,6 +8,8 @@ variables:
   kafka_bootstrap: {default: "adb-7405616503111862.servicebus.windows.net:9093"}
   alert_email: {default: "jmnvekounou@gmail.com"}
   sp_application_id: {default: "c35f6c00-9693-4ec5-90f5-7554cf37e15c"}
+  catalog: {default: pfe_dev}
+  tickers: {default: "AAPL,MSFT,NVDA,TSLA,AMZN"}
 
 artifacts:
   pfe_wheel:
