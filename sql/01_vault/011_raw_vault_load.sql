@@ -1,3 +1,5 @@
+USE CATALOG IDENTIFIER(:catalog);
+
 -- ===== CHARGEMENTS (idempotents) =====
 MERGE INTO vault.hub_article t USING (
   SELECT sha2(upper(trim(concat('alpaca_news|', cast(article_id AS STRING)))), 256) hk_article,
