@@ -20,7 +20,7 @@ resources:
 
     batch_ingest:
       name: pfe-batch-ingest-${bundle.target}
-      schedule: {quartz_cron_expression: "0 */15 * * * ?", timezone_id: UTC, pause_status: UNPAUSED}
+      schedule: {quartz_cron_expression: "0 */15 * * * ?", timezone_id: UTC, pause_status: PAUSED}
       max_concurrent_runs: 1
       queue: {enabled: true}
       email_notifications: {on_failure: ["${var.alert_email}"]}
@@ -85,7 +85,7 @@ resources:
 
     daily_batch:
       name: pfe-daily-${bundle.target}
-      schedule: {quartz_cron_expression: "0 30 22 ? * MON-FRI", timezone_id: America/New_York, pause_status: UNPAUSED}
+      schedule: {quartz_cron_expression: "0 30 22 ? * MON-FRI", timezone_id: America/New_York, pause_status: PAUSED}
       email_notifications: {on_failure: ["${var.alert_email}"]}
       environments:
         - environment_key: pfe_env
@@ -114,7 +114,7 @@ resources:
 
     train_models:
       name: pfe-train-${bundle.target}
-      schedule: {quartz_cron_expression: "0 0 3 ? * SUN", timezone_id: UTC, pause_status: UNPAUSED}
+      schedule: {quartz_cron_expression: "0 0 3 ? * SUN", timezone_id: UTC, pause_status: PAUSED}
       email_notifications: {on_failure: ["${var.alert_email}"]}
       environments:
         - environment_key: ml_env
