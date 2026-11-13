@@ -26,13 +26,15 @@ def _producer(s):
         "socket.keepalive.enable": True,
         "metadata.max.age.ms": 180000,
         "connections.max.idle.ms": 180000,
+        "message.timeout.ms": 15000,  # AJOUT : un échec d'envoi est signalé en 15 s au lieu de 5 min
+        "error_cb": lambda e: log.error("erreur kafka: %s", e),  # AJOUT : erreurs de connexion visibles
     }
     if s.kafka_password:  # Azure Event Hubs (API Kafka)
         conf |= {
-            "security.protocol": "SASL_SSL", 
+            "security.protocol": "SASL_SSL",
             "sasl.mechanism": "PLAIN",
-            "sasl.username": "$ConnectionString", 
-            "sasl.password": s.kafka_password,           
+            "sasl.username": "$ConnectionString",
+            "sasl.password": s.kafka_password,
         }
     return Producer(conf)
 
@@ -47,11 +49,17 @@ def run(kind: str) -> None:
     prod = _producer(s)
     topic = {"news": "raw.news", "bars": "raw.bars"}[kind]
 
+    def _delivered(err, m):  # AJOUT : callback de livraison
+        if err:
+            log.error("livraison échouée: %s", err)
+        else:
+            log.info("livré %s [%s] offset %s", m.topic(), m.partition(), m.offset())
+
     async def handler(msg):
         d = _to_dict(msg)
         d["_received_utc"] = time.time()  # horodatage de 1re vue : base du contrôle anti-anticipation
         key = str(d.get("id") or f"{d.get('symbol')}:{d.get('timestamp')}")
-        prod.produce(topic, key=key, value=json.dumps(d, default=str))
+        prod.produce(topic, key=key, value=json.dumps(d, default=str), on_delivery=_delivered)  # AJOUT : on_delivery
         prod.poll(0)
 
     backoff = 1

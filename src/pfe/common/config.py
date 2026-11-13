@@ -8,8 +8,13 @@ def _secret(name: str, default: str = "") -> str:
     """
         Env d'abord ; sinon secret scope Databricks 'pfe' si disponible.
     """
-    from dotenv import load_dotenv
-    load_dotenv()
+
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()  # sans effet sur Databricks : pas de fichier .env
+    except ImportError:
+        pass
+
     val = os.getenv(name)
     if val:
         return val
@@ -37,7 +42,7 @@ def get_symbols(path: str)-> list[str]:
 class Settings:
     catalog: str = field(default_factory=lambda: os.getenv("PFE_CATALOG", "pfe_dev"))
     tickers: tuple[str, ...] = field(
-        default_factory=lambda: tuple(t.strip() for t in os.getenv("TICKERS", "AAPL,MSFT").split(","))
+        default_factory=lambda: tuple(t.strip() for t in os.getenv("TICKERS", "AAPL,MSFT,NVDA,TSLA,AMZN,GOOGL,META").split(","))
     )
     finnhub_key: str = field(default_factory=lambda: _secret("FINNHUB_API_KEY"))
     alpaca_key: str = field(default_factory=lambda: _secret("ALPACA_KEY_ID"))

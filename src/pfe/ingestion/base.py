@@ -61,14 +61,11 @@ class BaseSource(ABC):
     name: str
     bronze_table: str = "bronze.raw_events"
 
-    path = "config/tickers.yml"
-
     expected_keys: frozenset[str] = frozenset()  # clés minimales attendues -> détecte un changement de structure
 
     def __init__(self, settings: Settings):
         self.s       = settings
         self.http    = requests.Session()
-        self.symbols = get_symbols(path)
 
     @abstractmethod
     def fetch(self, since: datetime, until: datetime) -> Iterator[dict]: ...
