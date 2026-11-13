@@ -58,11 +58,24 @@ def enrich(lookback_hours: int = 72) -> None:
         sc = FinBertScorer().score(d["text"].tolist())
         d = pd.concat([d.reset_index(drop=True), sc], axis=1)
         d["model_version"] = "finbert-prosus-v1"
-        st.kept = len(d)
-        spark.createDataFrame(d.drop(columns=["text"])).createOrReplaceTempView("_enriched")
-        spark.sql(f"""MERGE INTO {cat}.business_vault.bv_article_enriched t USING _enriched s
-                      ON t.hk_article = s.hk_article AND t.model_version = s.model_version
-                      WHEN MATCHED THEN UPDATE SET * WHEN NOT MATCHED THEN INSERT *""")
+        d["category"] = d["text"].map(categorize_rules)
+                d["dup_rank"] = d["dup_rank"].astype("int32")
+                d["cluster_size"] = d["cluster_size"].astype("int32")
+                st.kept = len(d)
+
+                cols = ["hk_article", "published_utc", "updated_utc", "first_seen_utc", "available_utc",
+                        "cluster_id", "is_first", "dup_rank", "cluster_size", "session_type", "session_date",
+                        "reaction_start_utc", "positive", "negative", "neutral", "sentiment_score",
+                        "sentiment_label", "category", "model_version"]
+                spark.createDataFrame(d[cols]).createOrReplaceTempView("_enriched")
+
+                upd = ", ".join(f"t.{c} = s.{c}" for c in cols)
+                ins_cols = ", ".join(cols + ["load_ts"])
+                ins_vals = ", ".join([f"s.{c}" for c in cols] + ["current_timestamp()"])
+                spark.sql(f"""MERGE INTO {cat}.business_vault.bv_article_enriched t USING _enriched s
+                              ON t.hk_article = s.hk_article AND t.model_version = s.model_version
+                              WHEN MATCHED THEN UPDATE SET {upd}, t.load_ts = current_timestamp()
+                              WHEN NOT MATCHED THEN INSERT ({ins_cols}) VALUES ({ins_vals})""")
 
 
 def train(experiment: str = "/Shared/pfe/event_impact") -> None:
