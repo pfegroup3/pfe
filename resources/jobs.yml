@@ -1,90 +1,110 @@
-resources:
-  pipelines:
-    stream_pipeline:
-      name: pfe-stream-${bundle.target}
-      catalog: ${var.catalog}
-      target: silver
-      serverless: true
-      continuous: true
-      libraries: [{file: {path: ../src/pfe/pipelines/dlt_stream.py}}]
-      configuration: {kafka.bootstrap: "${var.kafka_bootstrap}", kafka.sasl: "true", secret.scope: pfe}
-
-  jobs:
-    init_schema:
-      name: pfe-init-${bundle.target}
-      tasks:
-        - {task_key: ops, sql_task: {warehouse_id: "${var.warehouse_id}", file: {path: ../sql/00_ops/001_schemas_ops.sql}, parameters: {catalog: "${var.catalog}"}}}
-        - {task_key: vault, depends_on: [{task_key: ops}],   sql_task: {warehouse_id: "${var.warehouse_id}", file: {path: ../sql/01_vault/010_raw_vault_dll.sql}, parameters: {catalog: "${var.catalog}"}}}
-        - {task_key: bv,    depends_on: [{task_key: vault}],  sql_task: {warehouse_id: "${var.warehouse_id}", file: {path: ../sql/02_business_vault/020_business_vault.sql}, parameters: {catalog: "${var.catalog}"}}}
-        - {task_key: gold,  depends_on: [{task_key: bv}],     sql_task: {warehouse_id: "${var.warehouse_id}", file: {path: ../sql/03_gold/030_gold.sql}, parameters: {catalog: "${var.catalog}"}}}
-
     batch_ingest:
       name: pfe-batch-ingest-${bundle.target}
-      schedule: {quartz_cron_expression: "0 */5 * * * ?", timezone_id: UTC, pause_status: UNPAUSED}   # toutes les 5 min
+      schedule: {quartz_cron_expression: "0 */15 * * * ?", timezone_id: UTC, pause_status: UNPAUSED}
       max_concurrent_runs: 1
+      queue: {enabled: true}
       email_notifications: {on_failure: ["${var.alert_email}"]}
-      job_clusters:
-        - job_cluster_key: small
-          new_cluster:
-            spark_version: 15.4.x-scala2.12
-            node_type_id: Standard_DS3_v2
-            autoscale: {min_workers: 1, max_workers: 3}
-            data_security_mode: SINGLE_USER
-            spark_env_vars: {PFE_CATALOG: "${var.catalog}"}
+      environments:
+        - environment_key: pfe_env
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+              - "transformers>=4.41"
+              - torch
       tasks:
         - task_key: finnhub
-          job_cluster_key: small
+          environment_key: pfe_env
           max_retries: 2
           min_retry_interval_millis: 60000
-          python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [ingest, --source, finnhub_news]}
-          libraries: [{whl: ../dist/*.whl}]
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, finnhub_news]
         - task_key: alpaca_news
-          job_cluster_key: small
+          environment_key: pfe_env
           max_retries: 2
-          python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [ingest, --source, alpaca_news]}
-          libraries: [{whl: ../dist/*.whl}]
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, alpaca_news]
         - task_key: sec_8k
-          job_cluster_key: small
-          python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [ingest, --source, sec_8k]}
-          libraries: [{whl: ../dist/*.whl}]
+          environment_key: pfe_env
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, sec_8k]
         - task_key: bars_backfill
-          job_cluster_key: small
-          python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [ingest, --source, alpaca_bars_1m]}
-          libraries: [{whl: ../dist/*.whl}]
+          environment_key: pfe_env
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, alpaca_bars_1m]
         - task_key: vault_load
           depends_on: [{task_key: finnhub}, {task_key: alpaca_news}, {task_key: sec_8k}, {task_key: bars_backfill}]
+          run_if: AT_LEAST_ONE_SUCCESS
           sql_task:
             warehouse_id: "${var.warehouse_id}"
             file: {path: ../sql/01_vault/011_raw_vault_load.sql}
-            parameters: {catalog: "${var.catalog}"}        
+            parameters: {catalog: "${var.catalog}"}
         - task_key: enrich
-          job_cluster_key: small
+          environment_key: pfe_env
           depends_on: [{task_key: vault_load}]
-          python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [enrich]}
-          libraries: [{whl: ../dist/*.whl}, {pypi: {package: "transformers>=4.41"}}, {pypi: {package: "torch"}}]
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", enrich]
         - task_key: health
-          job_cluster_key: small
+          environment_key: pfe_env
           depends_on: [{task_key: enrich}]
           run_if: ALL_DONE
-          python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [health]}
-          libraries: [{whl: ../dist/*.whl}]
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", health]
 
     daily_batch:
       name: pfe-daily-${bundle.target}
       schedule: {quartz_cron_expression: "0 30 22 ? * MON-FRI", timezone_id: America/New_York, pause_status: UNPAUSED}
-      job_clusters:
-        - job_cluster_key: small
-          new_cluster: {spark_version: 15.4.x-scala2.12, node_type_id: Standard_DS3_v2, num_workers: 1, data_security_mode: SINGLE_USER, spark_env_vars: {PFE_CATALOG: "${var.catalog}", TICKERS: "AAPL,MSFT,NVDA,TSLA,AMZN"}}
+      email_notifications: {on_failure: ["${var.alert_email}"]}
+      environments:
+        - environment_key: pfe_env
+          spec:
+            environment_version: "2"
+            dependencies: [../dist/*.whl]
       tasks:
-        - {task_key: yahoo, job_cluster_key: small, python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [ingest, --source, yahoo_daily, --lookback-days, "7"]}, libraries: [{whl: ../dist/*.whl}]}
-        - {task_key: gdelt, job_cluster_key: small, python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [ingest, --source, gdelt]}, libraries: [{whl: ../dist/*.whl}]}
-        - {task_key: finnhub_sent, job_cluster_key: small, python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [ingest, --source, finnhub_sentiment]}, libraries: [{whl: ../dist/*.whl}]}
+        - task_key: yahoo
+          environment_key: pfe_env
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, yahoo_daily, --lookback-days, "7"]
+        - task_key: gdelt
+          environment_key: pfe_env
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, gdelt]
+        - task_key: finnhub_sent
+          environment_key: pfe_env
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, finnhub_sentiment]
 
     train_models:
       name: pfe-train-${bundle.target}
       schedule: {quartz_cron_expression: "0 0 3 ? * SUN", timezone_id: UTC, pause_status: UNPAUSED}
-      job_clusters:
-        - job_cluster_key: ml
-          new_cluster: {spark_version: 15.4.x-cpu-ml-scala2.12, node_type_id: Standard_DS4_v2, num_workers: 2, data_security_mode: SINGLE_USER, spark_env_vars: {PFE_CATALOG: "${var.catalog}"}}
+      email_notifications: {on_failure: ["${var.alert_email}"]}
+      environments:
+        - environment_key: ml_env
+          spec:
+            environment_version: "2"
+            dependencies: [../dist/*.whl, scikit-learn, xgboost, statsmodels, mlflow]
       tasks:
-        - {task_key: train, job_cluster_key: ml, python_wheel_task: {package_name: pfe, entry_point: pfe, parameters: [train]}, libraries: [{whl: ../dist/*.whl}]}
+        - task_key: train
+          environment_key: ml_env
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", train]
