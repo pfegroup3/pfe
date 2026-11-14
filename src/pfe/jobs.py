@@ -83,6 +83,11 @@ def train(experiment: str = "/Shared/pfe/event_impact") -> None:
 
     spark = _spark()
     df = spark.table(f"{get_settings().catalog}.gold.v_training_set").toPandas()
+    if len(df) < 300:
+        raise RuntimeError(
+            f"Jeu d'entraînement insuffisant : {len(df)} lignes (minimum technique 300, "
+            "utile à partir de 1000). Vérifiez bv_event_car et le volume d'articles."
+        )
     res = train_and_log(df, experiment, f"{get_settings().catalog}.gold.event_magnitude")
     log.info(res)
 
