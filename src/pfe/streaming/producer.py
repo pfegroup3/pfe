@@ -13,7 +13,7 @@ import time
 
 from pfe.common.config import get_settings
 
-log = logging.getLogger("pfe.streamer")
+log = logging.getLogger(__name__)
 
 
 def _producer(s):
@@ -27,8 +27,8 @@ def _producer(s):
         "socket.keepalive.enable": True,
         "metadata.max.age.ms": 180000,
         "connections.max.idle.ms": 180000,
-        "message.timeout.ms": 15000,  # AJOUT : un échec d'envoi est signalé en 15 s au lieu de 5 min
-        "error_cb": lambda e: log.error("erreur kafka: %s", e),  # AJOUT : erreurs de connexion visibles
+        "message.timeout.ms": 20000,  # un échec d'envoi est signalé en 20s
+        "error_cb": lambda e: log.error("erreur kafka: %s", e),  # erreurs de connexion visibles
     }
     if s.kafka_password:  # Azure Event Hubs (API Kafka)
         conf |= {

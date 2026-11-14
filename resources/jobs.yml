@@ -6,7 +6,7 @@ resources:
       target: silver
       serverless: true
       continuous: true
-      libraries: [{file: {path: ../src/pfe/pipelines/dlt_stream.py}}]
+      libraries: [{file: {path: ../src/pfe/pipelines/consumer.py}}]
       configuration: {kafka.bootstrap: "${var.kafka_bootstrap}", kafka.sasl: "true", secret.scope: pfe}
 
   jobs:

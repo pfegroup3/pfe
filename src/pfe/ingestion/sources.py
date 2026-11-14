@@ -79,7 +79,7 @@ class FinnhubSentiment(BaseSource):
  
 class AlpacaNews(BaseSource):
     """
-        Historique/rattrapage REST ; le temps réel passe par streaming/streamer.py.
+        Historique/rattrapage REST ; le temps réel passe par streaming/producer.py.
     """
     name          = "alpaca_news"
     expected_keys = frozenset({"id", "headline", "created_at", "symbols"})
