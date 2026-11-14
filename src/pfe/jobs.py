@@ -1,10 +1,14 @@
-"""Tâches Databricks (python_wheel_task) : ingestion batch, enrichissement, ML, santé."""
+"""
+    Tâches Databricks (python_wheel_task) : ingestion batch, enrichissement, ML, santé.
+"""
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
 
 from pfe.common.config import get_settings
+
+from pfe.ml.sentiment import ITEM_8K, FinBertScorer, categorize_rules
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +29,9 @@ def ingest(source: str, lookback_days: int = 3) -> None:
 
 
 def enrich(lookback_hours: int = 72) -> None:
-    """Silver -> Business Vault : dédoublonnage, séance, sentiment FinBERT, catégorie."""
+    """
+        Silver -> Business Vault : dédoublonnage, séance, sentiment FinBERT, catégorie.
+    """
     import pandas as pd
 
     from pfe.common.runlog import run_log
@@ -52,11 +58,24 @@ def enrich(lookback_hours: int = 72) -> None:
         sc = FinBertScorer().score(d["text"].tolist())
         d = pd.concat([d.reset_index(drop=True), sc], axis=1)
         d["model_version"] = "finbert-prosus-v1"
+        d["category"] = d["text"].map(categorize_rules)
+        d["dup_rank"] = d["dup_rank"].astype("int32")
+        d["cluster_size"] = d["cluster_size"].astype("int32")
         st.kept = len(d)
-        spark.createDataFrame(d.drop(columns=["text"])).createOrReplaceTempView("_enriched")
+
+        cols = ["hk_article", "published_utc", "updated_utc", "first_seen_utc", "available_utc",
+                    "cluster_id", "is_first", "dup_rank", "cluster_size", "session_type", "session_date",
+                    "reaction_start_utc", "positive", "negative", "neutral", "sentiment_score",
+                    "sentiment_label", "category", "model_version"]
+        spark.createDataFrame(d[cols]).createOrReplaceTempView("_enriched")
+
+        upd = ", ".join(f"t.{c} = s.{c}" for c in cols)
+        ins_cols = ", ".join(cols + ["load_ts"])
+        ins_vals = ", ".join([f"s.{c}" for c in cols] + ["current_timestamp()"])
         spark.sql(f"""MERGE INTO {cat}.business_vault.bv_article_enriched t USING _enriched s
-                      ON t.hk_article = s.hk_article AND t.model_version = s.model_version
-                      WHEN MATCHED THEN UPDATE SET * WHEN NOT MATCHED THEN INSERT *""")
+                        ON t.hk_article = s.hk_article AND t.model_version = s.model_version
+                        WHEN MATCHED THEN UPDATE SET {upd}, t.load_ts = current_timestamp()
+                        WHEN NOT MATCHED THEN INSERT ({ins_cols}) VALUES ({ins_vals})""")
 
 
 def train(experiment: str = "/Shared/pfe/event_impact") -> None:
@@ -64,6 +83,11 @@ def train(experiment: str = "/Shared/pfe/event_impact") -> None:
 
     spark = _spark()
     df = spark.table(f"{get_settings().catalog}.gold.v_training_set").toPandas()
+    if len(df) < 300:
+        raise RuntimeError(
+            f"Jeu d'entraînement insuffisant : {len(df)} lignes (minimum technique 300, "
+            "utile à partir de 1000). Vérifiez bv_event_car et le volume d'articles."
+        )
     res = train_and_log(df, experiment, f"{get_settings().catalog}.gold.event_magnitude")
     log.info(res)
 

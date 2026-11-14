@@ -10,7 +10,7 @@ requires-python = ">=3.10,<3.13"
 dependencies = [
   "pandas==2.1.2", "numpy>=1.26", "scipy>=1.11", "requests>=2.31", "tenacity>=8.2",
   "pandas-market-calendars>=4.4", "datasketch>=1.6", "yfinance>=0.2.40", "praw>=7.7",
-  "apache-airflow-providers-databricks==6.8.0",
+  "apache-airflow-providers-databricks==6.8.0","python-dotenv>=1.0", "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -21,7 +21,7 @@ dev = ["pytest>=8", "pytest-cov", "ruff>=0.5", "mypy>=1.10", "pandas-stubs", "ty
 
 [project.scripts]
 pfe = "pfe.cli:main"
-pfe-stream = "pfe.streaming.streamer:main"
+pfe-stream = "pfe.streaming.producer:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

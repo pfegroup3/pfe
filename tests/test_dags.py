@@ -8,6 +8,8 @@ pytest.importorskip("airflow")
 
 def test_dags_importables():
     from airflow.dag_processing.dagbag import DagBag
+    #from airflow.sdk import dag, task
+
 
     bag = DagBag(dag_folder="airflow/dags")
     assert not bag.import_errors

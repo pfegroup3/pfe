@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import re
+
 
 CATEGORIES = ["résultats", "fusion-acquisition", "direction", "réglementaire-juridique",
               "produit", "analyste-notation", "macro", "autre"]
@@ -11,6 +13,24 @@ ITEM_8K = {"2.02": "résultats", "1.01": "fusion-acquisition", "2.01": "fusion-a
            "5.02": "direction", "8.01": "autre", "7.01": "autre", "3.01": "réglementaire-juridique",
            "4.02": "réglementaire-juridique", "1.03": "réglementaire-juridique"}
 
+_KEYWORDS = {
+    "résultats": ["earnings", "revenue", "profit", "eps", "quarterly", "guidance", "results"],
+    "fusion-acquisition": ["acquire", "acquires", "acquisition", "merger", "buyout", "takeover"],
+    "direction": ["ceo", "cfo", "resigns", "appoints", "steps down", "chairman"],
+    "réglementaire-juridique": ["sec", "lawsuit", "fine", "probe", "investigation", "antitrust", "settlement"],
+    "produit": ["launch", "launches", "unveils", "unveil", "recall", "new product"],
+    "analyste-notation": ["upgrade", "downgrade", "price target", "analyst", "rating", "outperform"],
+    "macro": ["fed", "inflation", "interest rate", "tariff", "tariffs", "gdp", "opec"],
+}
+_PATTERNS = {c: re.compile(r"\b(?:" + "|".join(map(re.escape, w)) + r")\b", re.I) for c, w in _KEYWORDS.items()}
+
+
+def categorize_rules(text: str) -> str:
+    """Catégorie par mots-clés. Première catégorie qui correspond, sinon 'autre'."""
+    for cat, pat in _PATTERNS.items():
+        if pat.search(text or ""):
+            return cat
+    return "autre"
 
 class FinBertScorer:
     def __init__(self, model: str = "ProsusAI/finbert", device: int = -1, batch_size: int = 32):

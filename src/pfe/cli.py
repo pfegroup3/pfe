@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 from pfe import jobs
 
@@ -7,6 +8,8 @@ from pfe import jobs
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     p = argparse.ArgumentParser("pfe")
+    p.add_argument("--catalog")
+    p.add_argument("--tickers")
     sub = p.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("ingest")
     i.add_argument("--source", required=True)
@@ -15,11 +18,14 @@ def main() -> None:
     sub.add_parser("train")
     sub.add_parser("health")
     a = p.parse_args()
+    if a.catalog:
+        os.environ["PFE_CATALOG"] = a.catalog
+    if a.tickers:
+        os.environ["TICKERS"] = a.tickers
     if a.cmd == "ingest":
         jobs.ingest(a.source, a.lookback_days)
     else:
         getattr(jobs, a.cmd)()
-
 
 if __name__ == "__main__":
     main()
