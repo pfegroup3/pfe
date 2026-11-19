@@ -17,6 +17,7 @@ def main() -> None:
     sub.add_parser("enrich")
     sub.add_parser("train")
     sub.add_parser("health")
+    sub.add_parser("compute_car")
     a = p.parse_args()
     if a.catalog:
         os.environ["PFE_CATALOG"] = a.catalog

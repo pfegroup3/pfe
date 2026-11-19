@@ -60,13 +60,6 @@ resources:
             package_name: pfe
             entry_point: pfe
             parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, alpaca_bars_1m]
-        - task_key: vault_load
-          depends_on: [{task_key: finnhub}, {task_key: alpaca_news}, {task_key: sec_8k}, {task_key: bars_backfill}]
-          run_if: AT_LEAST_ONE_SUCCESS
-          sql_task:
-            warehouse_id: "${var.warehouse_id}"
-            file: {path: ../sql/01_vault/011_raw_vault_load.sql}
-            parameters: {catalog: "${var.catalog}"}
         - task_key: enrich
           environment_key: pfe_env
           depends_on: [{task_key: vault_load}]
@@ -76,12 +69,32 @@ resources:
             parameters: ["--catalog", "${var.catalog}", enrich]
         - task_key: health
           environment_key: pfe_env
-          depends_on: [{task_key: enrich}]
+          depends_on: [{task_key: compute_car}]
           run_if: ALL_DONE
           python_wheel_task:
             package_name: pfe
             entry_point: pfe
             parameters: ["--catalog", "${var.catalog}", health]
+        - task_key: bronze_to_silver
+          depends_on: [{task_key: finnhub}, {task_key: alpaca_news}, {task_key: sec_8k}, {task_key: bars_backfill}]
+          run_if: AT_LEAST_ONE_SUCCESS
+          sql_task:
+            warehouse_id: "${var.warehouse_id}"
+            file: {path: ../sql/01_vault/009_silver_from_bronze.sql}
+            parameters: {catalog: "${var.catalog}"}
+        - task_key: vault_load
+          depends_on: [{task_key: bronze_to_silver}]
+          sql_task:
+            warehouse_id: "${var.warehouse_id}"
+            file: {path: ../sql/01_vault/011_raw_vault_load.sql}
+            parameters: {catalog: "${var.catalog}"}
+        - task_key: compute_car
+          environment_key: pfe_env
+          depends_on: [{task_key: enrich}]
+          python_wheel_task:
+            package_name: pfe
+            entry_point: pfe
+            parameters: ["--catalog", "${var.catalog}", compute_car]
 
     daily_batch:
       name: pfe-daily-${bundle.target}
@@ -111,6 +124,13 @@ resources:
             package_name: pfe
             entry_point: pfe
             parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, finnhub_sentiment]
+        - task_key: silver_daily
+          depends_on: [{task_key: yahoo}, {task_key: gdelt}, {task_key: finnhub_sent}]
+          run_if: AT_LEAST_ONE_SUCCESS
+          sql_task:
+            warehouse_id: "${var.warehouse_id}"
+            file: {path: ../sql/01_vault/012_silver_daily_from_bronze.sql}
+            parameters: {catalog: "${var.catalog}"}
 
     train_models:
       name: pfe-train-${bundle.target}

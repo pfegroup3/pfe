@@ -42,7 +42,7 @@ def get_symbols(path: str)-> list[str]:
 class Settings:
     catalog: str = field(default_factory=lambda: os.getenv("PFE_CATALOG", "pfe_dev"))
     tickers: tuple[str, ...] = field(
-        default_factory=lambda: tuple(t.strip() for t in os.getenv("TICKERS", "AAPL,MSFT,NVDA,TSLA,AMZN,GOOGL,META").split(","))
+        default_factory=lambda: tuple(t.strip() for t in os.getenv("TICKERS", "AAPL,MSFT,NVDA,TSLA,AMZN,GOOGL,META,SPCX,AVGO,AMD,INTC,GME,AMC,JPM,SPY,NFLX,CRM,ORCL,BAC,GS,UNH,LLY,JNJ,PFE,XOM,CVX,WMT,COST,KO,BA,CA").split(","))
     )
     finnhub_key: str = field(default_factory=lambda: _secret("FINNHUB_API_KEY"))
     alpaca_key: str = field(default_factory=lambda: _secret("ALPACA_KEY_ID"))
