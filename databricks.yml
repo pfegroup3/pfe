@@ -9,7 +9,7 @@ variables:
   alert_email: {default: "jmnvekounou@gmail.com"}
   sp_application_id: {default: "c35f6c00-9693-4ec5-90f5-7554cf37e15c"}
   catalog: {default: pfe_dev}
-  tickers: {default: "AAPL,MSFT,NVDA,TSLA,AMZN"}
+  tickers: {default: "AAPL,MSFT,NVDA,TSLA,AMZN,GOOGL,META,SPCX,AVGO,AMD,INTC,GME,AMC,JPM,SPY,NFLX,CRM,ORCL,BAC,GS,UNH,LLY,JNJ,PFE,XOM,CVX,WMT,COST,KO,BA,CA"}
 
 artifacts:
   pfe_wheel:
