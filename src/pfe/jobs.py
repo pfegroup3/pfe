@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from pfe.common.config import get_settings
 
-from pfe.ml.sentiment import ITEM_8K, FinBertScorer, categorize_rules
+from pfe.ml.sentiment import ITEM_8K, FinBertScorer, categorize_8k, categorize_rules
 
 log = logging.getLogger(__name__)
 
@@ -44,8 +44,9 @@ def enrich(lookback_hours: int = 72) -> None:
     with run_log(spark, cat, "enrich") as st:
         since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
         pdf = spark.sql(f"""
-            SELECT hk_article, headline, summary, published_utc, updated_utc, first_seen_utc
-            FROM {cat}.vault.v_article_latest WHERE published_utc >= TIMESTAMP'{since.isoformat()}'""").toPandas()
+            SELECT hk_article, headline, summary, published_utc, updated_utc, first_seen_utc, record_source
+            FROM {cat}.vault.v_article_latest 
+            WHERE published_utc >= TIMESTAMP'{since.isoformat()}'""").toPandas()
         st.received = len(pdf)
         if pdf.empty:
             return
@@ -55,10 +56,28 @@ def enrich(lookback_hours: int = 72) -> None:
         d = attach_session(d, sess)
         # disponibilité : jamais avant la 1re vue réelle (évite le biais d'anticipation en backfill/rejeu)
         d["available_utc"] = d[["published_utc", "first_seen_utc"]].max(axis=1)
-        sc = FinBertScorer().score(d["text"].tolist())
-        d = pd.concat([d.reset_index(drop=True), sc], axis=1)
+
+        score_cols = ["positive", "negative", "neutral", "sentiment_score", "sentiment_label"]
+        # FinBERT : 1re publication de chaque groupe seulement, et pas les 8-K (leur titre n'a pas de contenu à noter)
+        scorable = d["is_first"] & (d["record_source"] != "sec_8k")
+        if scorable.any():
+            sc = FinBertScorer().score(d.loc[scorable, "text"].tolist())
+            sc.index = d.index[scorable]
+            d = d.join(sc[score_cols])
+        else:
+            d = d.assign(**{c: float("nan") for c in score_cols[:4]}, sentiment_label=None)
+        # les reprises héritent du score de la 1re publication de leur groupe
+        d[score_cols] = d.groupby("cluster_id")[score_cols].transform("first")
+        d["sentiment_label"] = d["sentiment_label"].fillna("non_evalue")
+        d[score_cols[:4]] = d[score_cols[:4]].fillna(0.0)
         d["model_version"] = "finbert-prosus-v1"
-        d["category"] = d["text"].map(categorize_rules)
+        d["category"] = [
+            (categorize_8k(h) if src == "sec_8k" else None) or categorize_rules(t)
+            for h, t, src in zip(d["headline"], d["text"], d["record_source"])
+        ]
+
+
+
         d["dup_rank"] = d["dup_rank"].astype("int32")
         d["cluster_size"] = d["cluster_size"].astype("int32")
         st.kept = len(d)
@@ -120,7 +139,7 @@ def compute_car(lookback_days: int = 60, market: str = "SPY") -> None:
               ON c.hk_article = e.hk_article AND c.hk_security = l.hk_security
             WHERE e.is_first AND e.reaction_start_utc IS NOT NULL""").toPandas()
         bars = spark.sql(f"""
-            SELECT symbol, bar_ts, close FROM {cat}.silver.silver_bars_1m
+            SELECT symbol, bar_ts, close FROM {cat}.silver.v_bars_all
             WHERE bar_ts >= current_timestamp() - INTERVAL {int(lookback_days)} DAYS""").toPandas()
         st.received = len(ev)
         bars["bar_ts"] = pd.to_datetime(bars["bar_ts"], utc=True)
