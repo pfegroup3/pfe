@@ -62,7 +62,7 @@ resources:
           python_wheel_task:
             package_name: pfe
             entry_point: pfe
-            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, alpaca_bars_1m]
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", "ingest", "--source", "alpaca_bars_1m", "--lookback-days", "{{job.parameters.lookback_days}}"]
         - task_key: enrich
           environment_key: pfe_env
           depends_on: [{task_key: vault_load}]
