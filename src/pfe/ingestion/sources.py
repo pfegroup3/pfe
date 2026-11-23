@@ -194,7 +194,7 @@ class GdeltDoc(BaseSource):
  
 class AlpacaBars1m(BaseSource):
     """
-        Barres 1 min brutes (adjustment=raw) : on ajuste nous-mêmes -> recalculable et traçable.
+        Barres 1 min brutes (adjustment=raw) avec ajustement -> recalculable et traçable.
     """
     name          = "alpaca_bars_1m"
     bronze_table  = "bronze.raw_bars"

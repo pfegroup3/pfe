@@ -63,3 +63,26 @@ FROM (SELECT *, row_number() OVER (PARTITION BY symbol, bar_ts ORDER BY prio, in
             UNION ALL
             SELECT symbol, bar_ts, open, high, low, close, volume, vwap, trade_count, ingested_utc, 2 AS prio FROM silver.silver_bars_1m_batch))
 WHERE rn = 1;
+
+
+CREATE TABLE IF NOT EXISTS silver.silver_filings_8k (
+  accession STRING, cik STRING, symbol STRING, items STRING, description STRING, url STRING,
+  published_utc TIMESTAMP, ingested_utc TIMESTAMP, record_hash STRING, bronze_ref STRING);
+
+MERGE INTO silver.silver_filings_8k t USING (
+  SELECT * EXCEPT (rn) FROM (
+    SELECT get_json_object(payload, '$.accessionNumber') AS accession,
+           get_json_object(payload, '$._cik') AS cik,
+           get_json_object(payload, '$._symbol') AS symbol,
+           get_json_object(payload, '$.items') AS items,
+           get_json_object(payload, '$.primaryDocDescription') AS description,
+           concat('https://www.sec.gov/Archives/edgar/data/',
+                  CAST(CAST(get_json_object(payload, '$._cik') AS BIGINT) AS STRING), '/',
+                  replace(get_json_object(payload, '$.accessionNumber'), '-', ''), '/',
+                  get_json_object(payload, '$.primaryDocument')) AS url,
+           published_utc, ingested_utc, record_hash,
+           concat_ws(':', source, record_id, record_hash) AS bronze_ref,
+           row_number() OVER (PARTITION BY record_id ORDER BY ingested_utc) AS rn
+    FROM bronze.raw_events WHERE source = 'sec_8k') WHERE rn = 1 AND accession IS NOT NULL) s
+ON t.accession = s.accession AND t.symbol = s.symbol
+WHEN NOT MATCHED THEN INSERT *;
