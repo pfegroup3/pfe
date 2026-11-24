@@ -2,10 +2,20 @@
 from __future__ import annotations
 
 import numpy as np
+import decimal
 import pandas as pd
 
 CAT_FEATURES = ["source", "sentiment_label", "category", "session_type", "hour_bucket"]
 NUM_FEATURES = ["sentiment_score", "cluster_size", "n_tickers", "pre_vol_15m", "is_first_i"]
+
+def _decimals_to_float(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    for c in df.columns:
+        if df[c].dtype == object:
+            vals = df[c].dropna()
+            if len(vals) and vals.map(lambda v: isinstance(v, decimal.Decimal)).all():
+                df[c] = df[c].astype(float)
+    return df
 
 
 def make_target(abs_car: pd.Series, train_mask: pd.Series) -> pd.Series:
@@ -51,13 +61,17 @@ def train_and_log(df: pd.DataFrame, experiment: str, registered_name: str, n_spl
     from sklearn.metrics import balanced_accuracy_score, f1_score, log_loss
     from sklearn.model_selection import TimeSeriesSplit
 
-    d = prepare(df.sort_values("published_utc").reset_index(drop=True))
-    cut = int(len(d) * (1 - holdout))
+    df      = _decimals_to_float(df)
+    d       = prepare(df.sort_values("published_utc").reset_index(drop=True))
+    cut     = int(len(d) * (1 - holdout))
     tr_mask = pd.Series(np.arange(len(d)) < cut, index=d.index)
+
     d["magnitude"] = make_target(d["abs_car"], tr_mask)
-    tr, te = d[tr_mask], d[~tr_mask]
-    X_cols = CAT_FEATURES + NUM_FEATURES
+    tr, te         = d[tr_mask], d[~tr_mask]
+    X_cols         = CAT_FEATURES + NUM_FEATURES
+
     mlflow.set_experiment(experiment)
+    
     results = {}
     for name, model in build_models().items():
         with mlflow.start_run(run_name=name) as run:
