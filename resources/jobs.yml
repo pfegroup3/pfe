@@ -50,7 +50,7 @@ resources:
           python_wheel_task:
             package_name: pfe
             entry_point: pfe
-            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", ingest, --source, alpaca_news]
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", "ingest", "--source", "alpaca_news", "--lookback-days", "{{job.parameters.lookback_days}}"]
         - task_key: sec_8k
           environment_key: pfe_env
           python_wheel_task:

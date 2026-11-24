@@ -6,7 +6,7 @@ import decimal
 import pandas as pd
 
 CAT_FEATURES = ["source", "sentiment_label", "category", "session_type", "hour_bucket"]
-NUM_FEATURES = ["sentiment_score", "cluster_size", "n_tickers", "pre_vol_15m", "is_first_i"]
+NUM_FEATURES = ["sentiment_score", "cluster_size", "n_tickers", "is_first_i"]
 
 def _decimals_to_float(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -71,7 +71,7 @@ def train_and_log(df: pd.DataFrame, experiment: str, registered_name: str, n_spl
     X_cols         = CAT_FEATURES + NUM_FEATURES
 
     mlflow.set_experiment(experiment)
-    
+
     results = {}
     for name, model in build_models().items():
         with mlflow.start_run(run_name=name) as run:
