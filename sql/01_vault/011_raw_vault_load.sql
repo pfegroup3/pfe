@@ -67,3 +67,35 @@ MERGE INTO vault.link_article_security t USING (
                sha2(upper(trim(symbol)), 256) AS hs
         FROM silver.silver_filings_8k)) s
 ON t.hk_link = s.hk_link WHEN NOT MATCHED THEN INSERT *;
+
+MERGE INTO vault.hub_article t USING (
+  SELECT sha2(upper(trim(concat('finnhub_news|', cast(article_id AS STRING)))), 256) AS hk_article,
+         concat('finnhub_news|', cast(article_id AS STRING)) AS bk_article,
+         min(ingested_utc) AS load_ts, 'finnhub_news' AS record_source
+  FROM silver.silver_news_finnhub GROUP BY article_id) s
+ON t.hk_article = s.hk_article WHEN NOT MATCHED THEN INSERT *;
+
+MERGE INTO vault.sat_article_content t USING (
+  SELECT sha2(upper(trim(concat('finnhub_news|', cast(article_id AS STRING)))), 256) AS hk_article,
+         current_timestamp() AS load_ts,
+         sha2(concat_ws('|', headline, summary, url, cast(published_utc AS STRING)), 256) AS hashdiff,
+         headline, summary, url, source_name, published_utc, published_utc AS updated_utc,
+         first_seen_utc, ingested_utc, record_hash AS bronze_record_hash, bronze_ref,
+         'finnhub_news' AS record_source
+  FROM (SELECT *, row_number() OVER (PARTITION BY article_id ORDER BY ingested_utc) AS rn
+        FROM silver.silver_news_finnhub) WHERE rn = 1) s
+ON t.hk_article = s.hk_article AND t.hashdiff = s.hashdiff WHEN NOT MATCHED THEN INSERT *;
+
+MERGE INTO vault.hub_security t USING (
+  SELECT DISTINCT sha2(upper(trim(symbol)), 256) AS hk_security, upper(trim(symbol)) AS bk_symbol,
+         current_timestamp() AS load_ts, 'finnhub_news' AS record_source
+  FROM silver.silver_news_finnhub) s
+ON t.hk_security = s.hk_security WHEN NOT MATCHED THEN INSERT *;
+
+MERGE INTO vault.link_article_security t USING (
+  SELECT DISTINCT sha2(concat_ws('|', ha, hs), 256) AS hk_link, ha AS hk_article, hs AS hk_security,
+         current_timestamp() AS load_ts, 'finnhub_news' AS record_source
+  FROM (SELECT sha2(upper(trim(concat('finnhub_news|', cast(article_id AS STRING)))), 256) AS ha,
+               sha2(upper(trim(symbol)), 256) AS hs
+        FROM silver.silver_news_finnhub)) s
+ON t.hk_link = s.hk_link WHEN NOT MATCHED THEN INSERT *;

@@ -75,9 +75,6 @@ def enrich(lookback_hours: int = 72) -> None:
             (categorize_8k(h) if src == "sec_8k" else None) or categorize_rules(t)
             for h, t, src in zip(d["headline"], d["text"], d["record_source"])
         ]
-
-
-
         d["dup_rank"] = d["dup_rank"].astype("int32")
         d["cluster_size"] = d["cluster_size"].astype("int32")
         st.kept = len(d)

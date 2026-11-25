@@ -86,3 +86,28 @@ MERGE INTO silver.silver_filings_8k t USING (
     FROM bronze.raw_events WHERE source = 'sec_8k') WHERE rn = 1 AND accession IS NOT NULL) s
 ON t.accession = s.accession AND t.symbol = s.symbol
 WHEN NOT MATCHED THEN INSERT *;
+
+CREATE TABLE IF NOT EXISTS silver.silver_news_finnhub (
+  article_id BIGINT, symbol STRING, headline STRING, summary STRING, source_name STRING, url STRING,
+  published_utc TIMESTAMP, first_seen_utc TIMESTAMP, ingested_utc TIMESTAMP,
+  record_hash STRING, bronze_ref STRING);
+
+MERGE INTO silver.silver_news_finnhub t USING (
+  SELECT * EXCEPT (rn) FROM (
+    SELECT try_cast(get_json_object(payload, '$.id') AS BIGINT) AS article_id,
+           upper(trim(get_json_object(payload, '$._symbol'))) AS symbol,
+           get_json_object(payload, '$.headline') AS headline,
+           get_json_object(payload, '$.summary') AS summary,
+           get_json_object(payload, '$.source') AS source_name,
+           get_json_object(payload, '$.url') AS url,
+           published_utc,
+           published_utc AS first_seen_utc,   -- Finnhub ne donne pas l'heure de première vue : publication = disponibilité
+           ingested_utc, record_hash,
+           concat_ws(':', source, record_id, record_hash) AS bronze_ref,
+           row_number() OVER (PARTITION BY record_id ORDER BY ingested_utc) AS rn
+    FROM bronze.raw_events WHERE source = 'finnhub_news')
+  WHERE rn = 1 AND article_id IS NOT NULL AND symbol IS NOT NULL
+    AND headline IS NOT NULL AND length(trim(headline)) > 0
+    AND published_utc <= current_timestamp() + INTERVAL 5 MINUTES) s
+ON t.article_id = s.article_id AND t.symbol = s.symbol
+WHEN NOT MATCHED THEN INSERT *;
