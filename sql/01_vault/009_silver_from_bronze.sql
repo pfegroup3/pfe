@@ -20,7 +20,9 @@ MERGE INTO silver.silver_news_batch t USING (
            get_json_object(payload, '$.url') AS url,
            from_json(get_json_object(payload, '$.symbols'), 'array<string>') AS symbols,
            published_utc, updated_utc,
-           min(ingested_utc) OVER (PARTITION BY record_id) AS first_seen_utc,
+           CASE WHEN min(ingested_utc) OVER (PARTITION BY record_id) > published_utc + INTERVAL 2 HOURS
+                THEN published_utc -- rattrapage historique : on ne sait pas quand l'article a été vu
+                ELSE min(ingested_utc) OVER (PARTITION BY record_id) END AS first_seen_utc,
            ingested_utc, record_hash,
            concat_ws(':', source, record_id, record_hash) AS bronze_ref,
            row_number() OVER (PARTITION BY record_id, updated_utc ORDER BY ingested_utc) AS rn
