@@ -69,7 +69,7 @@ resources:
           python_wheel_task:
             package_name: pfe
             entry_point: pfe
-            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", "enrich", "--lookback-hours", "1200"]
+            parameters: ["--catalog", "${var.catalog}", "--tickers", "${var.tickers}", "enrich", "--lookback-hours", "72"]
         - task_key: health
           environment_key: pfe_env
           depends_on: [{task_key: compute_car}]
