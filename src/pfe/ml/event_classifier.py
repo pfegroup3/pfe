@@ -1,4 +1,6 @@
-"""Modèle 2b : classification de l'ampleur (faible/moyenne/forte) — validation chronologique + baseline."""
+"""
+    Modèle 2b : classification de l'ampleur (faible/moyenne/forte) — validation chronologique + baseline.
+"""
 from __future__ import annotations
 
 import numpy as np

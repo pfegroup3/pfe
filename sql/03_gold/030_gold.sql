@@ -31,9 +31,19 @@ LEFT JOIN business_vault.bv_event_car c ON c.hk_article=e.hk_article AND c.hk_se
 WHERE e.is_first;   -- signal uniquement ; les reprises restent dans bv_article_enriched
 
 CREATE OR REPLACE VIEW gold.v_training_set AS
-SELECT f.hk_article, f.hk_security, f.published_utc, f.source_name AS source, f.sentiment_label, f.sentiment_score, f.category, f.session_type,
-       f.is_first, f.cluster_size, 1 AS n_tickers, 0.0 AS pre_vol_15m, abs(f.car) AS abs_car
-FROM gold.fact_news_impact f WHERE f.car IS NOT NULL;
+SELECT f.hk_article, f.hk_security, f.published_utc, f.source_name AS source,
+       f.sentiment_label, f.sentiment_score, f.category, f.session_type,
+       f.is_first, f.cluster_size,
+       coalesce(n.n_tickers, 1) AS n_tickers,
+       c.pre_vol_15m, c.pre_vol_1d,
+       abs(f.car) AS abs_car
+FROM gold.fact_news_impact f
+LEFT JOIN business_vault.bv_event_car c
+       ON c.hk_article = f.hk_article AND c.hk_security = f.hk_security
+LEFT JOIN (SELECT hk_article, count(DISTINCT hk_security) AS n_tickers
+           FROM vault.link_article_security GROUP BY hk_article) n
+       ON n.hk_article = f.hk_article
+WHERE f.car IS NOT NULL;
 
 CREATE OR REPLACE VIEW gold.fact_realtime_feed AS
 SELECT f.*, p.predicted_magnitude, p.predicted_proba_high FROM gold.fact_news_impact f

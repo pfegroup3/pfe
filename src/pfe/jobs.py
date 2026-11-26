@@ -159,9 +159,15 @@ def compute_car(lookback_days: int = 60, market: str = "SPY") -> None:
                 t0 = t0.tz_localize("UTC") if t0.tzinfo is None else t0.tz_convert("UTC")
                 res = event_car(cache[r.symbol], mkt, t0)
                 if res:
+                    ser = cache[r.symbol]
+                    pos = ser.index.searchsorted(t0, side="left")     # barres strictement avant l'événement
+                    prior = ser.iloc[max(0, pos - 390):pos]
+                    pv15 = float(prior.iloc[-15:].std(ddof=1)) if len(prior) >= 15 else float("nan")
+                    pv1d = float(prior.std(ddof=1)) if len(prior) >= 100 else float("nan")
                     rows.append({"hk_article": r.hk_article, "hk_security": r.hk_security,
                                  "window_start_min": -15, "window_end_min": 60,
                                  **{k: res[k] for k in ("car", "t_stat", "p_value", "alpha", "beta", "n_est")},
+                                 "pre_vol_15m": pv15, "pre_vol_1d": pv1d,
                                  "model_version": "market-model-ols-v1"})
         st.kept, st.rejected = len(rows), len(ev) - len(rows)
         if not rows:
@@ -169,5 +175,7 @@ def compute_car(lookback_days: int = 60, market: str = "SPY") -> None:
         out = pd.DataFrame(rows)
         for c in ("window_start_min", "window_end_min", "n_est"):
             out[c] = out[c].astype("int32")
+        for c in ("pre_vol_15m", "pre_vol_1d"):
+            out[c] = out[c].astype("float64")
         out["load_ts"] = pd.Timestamp.now(tz="UTC")
         spark.createDataFrame(out).write.mode("append").saveAsTable(f"{cat}.business_vault.bv_event_car")
